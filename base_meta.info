@@ -1,0 +1,7 @@
+name = Base Meta Tags
+description = Provide set of meta tags for search engines.
+package = SEO
+backdrop = 1.x
+type = module
+configure = admin/config/search/base_meta
+version = 1.0.7

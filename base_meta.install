@@ -1,0 +1,91 @@
+<?php
+/**
+ * @file
+ * Base Meta install
+ */
+
+/**
+ * Implements hook_schema().
+ * Define SQL table for base_meta
+ */
+function base_meta_schema() {
+  $schema = array();
+
+  $schema['base_meta'] = array(
+    'description' => 'Table to store meta tags, page titles and path aliases.',
+    'fields' => array(
+      'bmid' => array(
+        'description' => 'Unique base meta identifier.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'nid' => array(
+        'description' => 'The node.nid to which those tags.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'path_alias' => array(
+        'description' => 'Path alias for set meta tags and page title.',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+      ),
+      'langcode' => array(
+        'description' => 'The language code of correspond node.',
+        'type' => 'varchar',
+        'length' => 12,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'page_title' => array(
+        'description' => 'Page title tag content.',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => FALSE,
+      ),
+      'meta_keywords' => array(
+        'description' => 'Meta keywords content.',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => FALSE,
+      ),
+      'meta_description' => array(
+        'description' => 'Meta description content.',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => FALSE,
+      ),
+      'meta_robots' => array(
+        'description' => 'Meta robots content.',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => FALSE,
+      ),
+      'meta_canonical' => array(
+        'description' => 'Meta canonical content.',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => FALSE,
+      ),
+      'uid' => array(
+        'description' => 'Author identifier.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'changed' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Unix timestamp of when record occurred.',
+      ),
+    ),
+    'primary key' => array('bmid'),
+  );
+
+  return $schema;
+}

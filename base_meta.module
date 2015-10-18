@@ -1,0 +1,497 @@
+<?php
+
+/**
+ * @file base_meta.module
+ */
+
+/**
+ * Implements hook_help().
+ * 
+ */
+function base_meta_help($path, $arg) {
+  if ($path == 'admin/help#base_meta') {
+    return t('Base Meta provide base set of meta tag.');
+  }
+}
+
+/**
+ * Implements hook_permission().
+ *
+ */
+function base_meta_permission() {
+  return array(
+    'administer base meta settings' => array(
+      'title' => t('Administer base meta settings')
+    ),
+    'edit base meta tags' => array(
+      'title' => t('Edit base meta tags')
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ *
+ */
+function base_meta_menu() {
+  $items = array();
+
+  $items['admin/config/search/base_meta'] = array(
+    'type' => MENU_NORMAL_ITEM,
+    'title' => 'Base Meta Tags',
+    'page callback' => 'backdrop_get_form',
+    'page arguments' => array('base_meta_form'),
+    'file' => 'base_meta.admin.inc',
+    'access callback' => 'user_access',
+    'access arguments' => array('administer base meta settings'),
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_config_info().
+ */
+function base_meta_config_info() {
+  $prefixes['base_meta.settings'] = array(
+    'label' => t('Base Meta settings'),
+    'group' => t('Configuration'),
+  );
+  $prefixes['base_meta.second_set_of.settings'] = array(
+    'label' => t('Second set of settings'),
+    'group' => t('Base Meta Module'),
+  );
+  return $prefixes;
+}
+
+/**
+ * Implements hook_form_alter().
+ *
+ * Adds fieldset to the node create/edit form as topmost vertical tab.
+ *
+ */
+function base_meta_form_alter(&$form, $form_state, $form_id) {
+
+  $config = config('base_meta.settings');
+  $base_canonical_url = rtrim($config->get('base_canonical_url'), '/');
+
+  if (isset($form['#node']) && $form['#node']->type . '_node_form' == $form_id) {
+
+    $form['#validate'][] = 'base_meta_form_validate';
+    // edit existing node or add new 
+    $nid = isset($form['nid']['#value']) ? $form['nid']['#value'] : NULL;
+    $bmt_arr = isset($nid) ? base_meta_get_tags_by_nid($nid) : NULL;
+
+    $form['base_meta'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Base meta tags, page title'),
+      '#access' => user_access('edit base meta tags'),
+      '#collapsible' => TRUE,
+      '#collapsed' => FALSE,
+      '#tree' => TRUE,
+      '#weight' => -99,
+      '#group' => 'additional_settings',
+      '#attached' => array(
+        'js' => array(
+          'vertical-tabs' => backdrop_get_path('module', 'base_meta') . '/js/base_meta.js',
+        ),
+      ),
+    );
+
+    $form['base_meta']['enabled'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Define tags for page of this node'),
+      '#default_value' => is_array($bmt_arr),
+    );
+
+    $form['base_meta']['base_meta_container'] = array(
+      '#type' => 'container',
+      '#parents' => array('base_meta'),
+      '#states' => array(
+        'invisible' => array(
+          'input[name="base_meta[enabled]"]' => array('checked' => FALSE),
+        ),
+      ),
+    );
+
+    $form['base_meta']['base_meta_container']['page_title'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Page title'),
+      '#default_value' => isset($bmt_arr['page_title']) ? $bmt_arr['page_title'] : '',
+      '#description' => t('Description of this node to appear in the &lt;title&gt; tag for search engines search result listings.'),
+    );
+    $form['base_meta']['base_meta_container']['meta_keywords'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Meta keywords'),
+      '#default_value' => isset($bmt_arr['meta_keywords']) ? $bmt_arr['meta_keywords'] : '',
+      '#size' => 120,
+      '#maxlength' => 255,
+      '#description' => t('Comma separated list of keywords.'),
+    );
+    $form['base_meta']['base_meta_container']['meta_description'] = array(
+      '#type' => 'textarea',
+      '#title' => t('Meta description'),
+      '#default_value' => isset($bmt_arr['meta_description']) ? $bmt_arr['meta_description'] : '',
+      '#rows' => 3,
+      '#description' => t('One or two sentence described this page (350 characters max. without any HTML tags.)'),
+    );
+    $form['base_meta']['base_meta_container']['meta_robots'] = array(
+      '#type' => 'checkboxes',
+      '#title' => t('Meta robots'),
+      '#options' => backdrop_map_assoc(array('NOINDEX', 'NOFOLLOW', 'NOARCHIVE', 'NOODP', 'NOSNIPPET')),
+      '#default_value' => isset($bmt_arr['meta_robots']) ? unserialize($bmt_arr['meta_robots']) : array(),
+      '#description' => 'Search engines assume "INDEX" and "FOLLOW" unless these are specifically disabled above.',
+    );
+    $form['base_meta']['base_meta_container']['meta_canonical'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Canonical URL'),
+      '#default_value' => isset($bmt_arr['meta_canonical']) ? $bmt_arr['meta_canonical'] : '',
+      '#description' => t("Use a relative URL without the initial slash for this(or default) domain or full URL in oter case."
+          . " By default (if no value) this will automatically use URL of this page."),
+    );
+  }
+}
+
+/**
+ * Implements hook_validate().
+ * 
+ * Placeholder for validations (Description as an example) 
+ *
+ * @todo maybe define any field(s) as required 
+ */
+
+function base_meta_form_validate($form, &$form_state) {
+
+  if (isset($form['#node']) && is_object($form['#node'])) {
+    if ($form_state['values']['base_meta']['enabled'] == 1) {
+      if (trim($form_state['values']['base_meta']['meta_description']) == '') {
+        form_set_error('base_meta][meta_description', t('You must fill "Description" field at least.'));
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_node_insert().
+ */
+function base_meta_node_insert(Node $node) {
+
+  // for further content type check enabling
+  if (!is_object($node) || !is_array($node->base_meta)) {
+    exit();
+  }
+
+  $base_meta_enabled = $node->base_meta['enabled'];
+
+  if ($base_meta_enabled) {
+    base_meta_record_insert($node);
+  }
+}
+
+/**
+ * Implements hook_node_update().
+ */
+function base_meta_node_update(Node $node) {
+
+  // for further content type check enabling
+  if (!is_array($node->base_meta)) {
+    exit();
+  }
+
+  $base_meta_enabled = $node->base_meta['enabled'];
+  $found = db_select('base_meta', 'bm')
+      ->fields('bm')
+      ->condition('nid', $node->nid, '=')
+      ->execute()
+      ->fetchObject();
+
+  $bmid = is_object($found) ? $bmid = $found->bmid : NULL;
+
+  if ($base_meta_enabled) {
+    if ($bmid) {
+      base_meta_record_update($node);
+    }
+    else {
+      base_meta_record_insert($node);
+    }
+  }
+  else {
+    if ($bmid) {
+      base_meta_record_delete($node);
+    }
+  }
+}
+
+/**
+ * Implements hook_node_predelete().
+ */
+function base_meta_node_predelete(Node $node) {
+
+  base_meta_record_delete($node);
+}
+
+function base_meta_record_insert($node) {
+
+  $path             = $node->path;
+  $path['alias']    = trim($path['alias']);
+  $path_alias       = (!empty($path['alias'])) ? $path['alias'] : 'node/' . $node->nid;
+  $langcode         = isset($node->langcode) ? $node->langcode : LANGUAGE_NONE;
+  $page_title       = trim($node->base_meta['page_title']);
+  $meta_keywords    = trim($node->base_meta['meta_keywords']);
+  $meta_description = trim($node->base_meta['meta_description']);
+  $meta_robots      = serialize($node->base_meta['meta_robots']);
+  $meta_canonical   = trim($node->base_meta['meta_canonical']);
+
+  db_insert('base_meta')
+      ->fields(array(
+        'nid' => $node->nid,
+        'path_alias' => $path_alias,
+        'langcode' => $langcode,
+        'page_title' => $page_title,
+        'meta_keywords' => $meta_keywords,
+        'meta_description' => $meta_description,
+        'meta_robots' => $meta_robots,
+        'meta_canonical' => $meta_canonical,
+        'uid' => $node->uid,
+        'changed' => time(),
+      ))
+      ->execute();
+}
+
+// Delete db record associated with this node (if any).
+function base_meta_record_delete($node) {
+
+  $result = db_select('base_meta', 'bm')
+      ->fields('bm')
+      ->condition('nid', $node->nid, '=')
+      ->execute()
+      ->fetchObject();
+
+  if (is_object($result)) {
+    $bmid = $result->bmid;
+    db_delete('base_meta')
+        ->condition('bmid', $bmid)
+        ->execute();
+  }
+}
+
+function base_meta_record_update($node) {
+
+  $path             = $node->path;
+  $path['alias']    = trim($path['alias']);
+  $path_alias       = (!empty($path['alias'])) ? $path['alias'] : 'node/' . $node->nid;
+  $langcode         = isset($node->langcode) ? $node->langcode : LANGUAGE_NONE;
+  $page_title       = trim($node->base_meta['page_title']);
+  $meta_keywords    = trim($node->base_meta['meta_keywords']);
+  $meta_description = trim($node->base_meta['meta_description']);
+  $meta_robots      = serialize($node->base_meta['meta_robots']);
+  $meta_canonical   = trim($node->base_meta['meta_canonical']);
+
+  db_update('base_meta')
+      ->fields(array(
+        'path_alias' => $path_alias,
+        'langcode' => $langcode,
+        'page_title' => $page_title,
+        'meta_keywords' => $meta_keywords,
+        'meta_description' => $meta_description,
+        'meta_robots' => $meta_robots,
+        'meta_canonical' => $meta_canonical,
+        'uid' => $node->uid,
+        'changed' => time(),
+      ))
+      ->condition('nid', $node->nid, '=')
+      ->execute();
+}
+
+/**
+ * Get tags associated with node.
+ *
+ * @params string $nid
+ *   node identifier for retriving data.
+ *
+ * @return array of tags or false 
+ *   Found base meta tags.
+ */
+function base_meta_get_tags_by_nid($nid) {
+  $query = db_select('base_meta', 'bm')
+      ->fields('bm')
+      ->condition('nid', $nid, '=')
+      ->execute()
+      ->fetchAssoc();
+  return $query;
+}
+
+/**
+ * Implements hook_html_head_alter().
+ */
+function base_meta_html_head_alter(&$head_elements) {
+  foreach ($head_elements as $key => $element) {
+
+    if (isset($element['#attributes']['rel']) && $element['#attributes']['rel'] == 'canonical') {
+      $system_canonical = $element['#attributes']['href'];
+      // Check if we need a custom canonical URL.
+      $head_elements[$key]['#attributes']['href'] = base_meta_canonical_url($system_canonical);
+    }
+  }
+}
+
+function base_meta_init() {
+  global $language;
+  global $base_url;
+
+  $tags = base_meta_get_defined_tags();
+  // !!!check
+  foreach ($tags as $name => $value) {
+    if ($value) {
+      $element = array(
+        '#tag' => 'meta',
+        '#attributes' => array(
+          'name' => $name,
+          'content' => $value,
+        ),
+      );
+      backdrop_add_html_head($element, 'base_meta_' . $name);
+    }
+  }
+
+  if (backdrop_is_front_page()) {
+    $base_canonical_url = rtrim(config_get('base_meta.settings', 'base_canonical_url'), '/');
+    // @todo: language_negotiation for domain case
+    $lang = language_default()->langcode != $language->langcode ? '/' . $language->langcode : '';
+    $canonical_url = (!empty($base_canonical_url) ? $base_canonical_url : $base_url) . $lang;
+    backdrop_add_html_head_link(array('rel' => 'canonical', 'href' => $canonical_url));
+  }
+}
+
+/**
+ * 
+ * @global object $language
+ * @return NULL if called from admin related task
+ * or object
+ */
+function base_meta_caller() {
+  global $language;
+
+  $caller = new stdClass();
+  $caller->is_front = backdrop_is_front_page();
+  if (module_exists('language')) {
+    $caller->langcode = $language->langcode;
+  }
+  if (arg(0) == 'node' && is_numeric(arg(1))) {
+    $caller->nid = arg(1);
+  }
+  if (arg(0) == 'taxonomy' && arg(1) == 'term' && arg(2)) {
+    $caller->tid = arg(2);
+  }
+
+  return $caller;
+}
+
+/**
+ * Redefine system canonical if needed
+ * 
+ * @return string $canonical_url
+ */
+function base_meta_canonical_url($system_canonical = '') {
+
+//  if (config_get('system.core', 'canonical_secure')) {
+//    $system_canonical = str_replace('http://', 'https://', $system_canonical);
+//  }
+  global $base_url;
+  $base_canonical_url = rtrim(config_get('base_meta.settings', 'base_canonical_url'), '/');
+
+  if ($base_canonical_url != '') {
+    // @todo secure protocol replace
+    $system_canonical = str_replace($base_url, $base_canonical_url, $system_canonical);
+  }
+  else {
+    $base_canonical_url = $base_url;
+  }
+
+  $caller = base_meta_caller();
+
+  if (is_object($caller)) {
+    if (isset($caller->nid)) {
+      $base_meta_tags = base_meta_get_tags_by_nid($caller->nid);
+
+      $canonical_url = $system_canonical;
+      $canonical_from_node = $base_meta_tags['meta_canonical'];
+      if ($canonical_from_node != '') {
+        $canonical_url = strpos($canonical_from_node, 'http') !== 0 ? $base_canonical_url . '/' . $canonical_from_node : $canonical_from_node;
+      }
+    }
+    else {
+      $canonical_url = $system_canonical;
+    }
+  }
+
+  return $canonical_url;
+}
+
+/**
+ *  Build array of tags 
+ */
+function base_meta_get_defined_tags() {
+  $config           = config('base_meta.settings');
+  $caller           = base_meta_caller();
+  $meta_keywords    = $config->get('meta_keywords');
+  $meta_description = $config->get('meta_description');
+  $arr_meta_robots  = $config->get('meta_robots');
+  $meta_robots      = '';
+
+  if (is_object($caller)) {
+    if (isset($caller->nid)) {
+      $base_meta_tags = base_meta_get_tags_by_nid($caller->nid);
+      if (is_array($base_meta_tags)) {
+        $meta_keywords    = $base_meta_tags['meta_keywords'] != '' ? $base_meta_tags['meta_keywords'] : NULL;
+        $meta_description = $base_meta_tags['meta_description'] != '' ? $base_meta_tags['meta_description'] : NULL;
+        $arr_meta_robots  = $base_meta_tags['meta_robots'] != '' ? unserialize($base_meta_tags['meta_robots']) : array();
+      }
+
+      foreach ($arr_meta_robots as $key => $value) {
+        if ($value) {
+          $meta_robots .= strtolower($key) . ', ';
+        }
+      }
+      $meta_robots = rtrim($meta_robots, ', ');
+    }
+
+    $base_meta_tags_array = array(
+      'keywords' => $meta_keywords,
+      'description' => $meta_description,
+      'robots' => $meta_robots,
+    );
+  }
+  return $base_meta_tags_array;
+}
+
+/**
+ * Implements hook_preprocess_page().
+ */
+function base_meta_preprocess_page(&$variables) {
+
+  $base_meta_title = base_meta_get_page_title();
+  if ($base_meta_title != '') {
+    $head_site_name = $variables['head_title_array']['name'];
+    $variables['head_title'] = $base_meta_title . ' | ' . $head_site_name;
+  }
+}
+
+/**
+ * Get page title from node (if defined there).
+ * 
+ * @return string $page_title
+ */
+function base_meta_get_page_title() {
+  $page_title = '';
+  $caller     = base_meta_caller();
+  if (is_object($caller)) {
+    if (isset($caller->nid)) {
+      $base_meta_tags = base_meta_get_tags_by_nid($caller->nid);
+      if (is_array($base_meta_tags)) {
+        $page_title = $base_meta_tags['page_title'];
+      }
+    }
+  }
+  return $page_title;
+}
