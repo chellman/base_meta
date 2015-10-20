@@ -57,10 +57,7 @@ function base_meta_config_info() {
     'label' => t('Base Meta settings'),
     'group' => t('Configuration'),
   );
-  $prefixes['base_meta.second_set_of.settings'] = array(
-    'label' => t('Second set of settings'),
-    'group' => t('Base Meta Module'),
-  );
+  
   return $prefixes;
 }
 
@@ -176,11 +173,6 @@ function base_meta_form_validate($form, &$form_state) {
  */
 function base_meta_node_insert(Node $node) {
 
-  // for further content type check enabling
-  if (!is_object($node) || !is_array($node->base_meta)) {
-    exit();
-  }
-
   $base_meta_enabled = $node->base_meta['enabled'];
 
   if ($base_meta_enabled) {
@@ -192,11 +184,6 @@ function base_meta_node_insert(Node $node) {
  * Implements hook_node_update().
  */
 function base_meta_node_update(Node $node) {
-
-  // for further content type check enabling
-  if (!is_array($node->base_meta)) {
-    exit();
-  }
 
   $base_meta_enabled = $node->base_meta['enabled'];
   $found = db_select('base_meta', 'bm')
