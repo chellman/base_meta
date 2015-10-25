@@ -81,7 +81,7 @@ function base_meta_form_alter(&$form, $form_state, $form_id) {
 
     $form['base_meta'] = array(
       '#type' => 'fieldset',
-      '#title' => t('Base meta tags, page title'),
+      '#title' => t('Page title and meta tags'),
       '#access' => user_access('edit base meta tags'),
       '#collapsible' => TRUE,
       '#collapsed' => FALSE,
@@ -143,7 +143,7 @@ function base_meta_form_alter(&$form, $form_state, $form_id) {
       '#type' => 'textfield',
       '#title' => t('Canonical URL'),
       '#default_value' => isset($bmt_arr['meta_canonical']) ? $bmt_arr['meta_canonical'] : '',
-      '#description' => t("Use a relative URL without the initial slash for this(or default) domain or full URL in oter case."
+      '#description' => t("Use a relative URL without the initial slash for this (or default) domain or full URL in other case."
           . " By default (if no value) this will automatically use URL of this page."),
     );
   }

@@ -1,8 +1,17 @@
 Base Meta Tags
 ==============
 
-Provide easy way to define meta tags, such as description, keywords and
-robots for pages as well as custom page titles.
+The Base Meta Tags module allows you define base set of meta tags 
+for search engines:
+
+ - keywords, descriptions and robots tags - you can set values 
+   on per page (node) basis or as default values for all pages 
+   where meta tags not defined;
+ - for each node you can set value for custom tag title, instead used 
+   for this purpose node title;
+ - for each node you can re-define canonical URL;
+ - you can set different base URL for using in all canonical URLs 
+   instead default (actual) site domain.
 
 Installation
 ------------
@@ -17,7 +26,7 @@ Installation
 Usage
 -----
 After installing the module, any node Create/Edit form received additional 
-topmost vertical tab named 'Base meta tags, page title' - click in checkbox 
+topmost vertical tab named 'Page title and meta tags' - click in checkbox 
 named 'Define tags for page of this node' and fill opened fields as you need. 
 
 License
