@@ -69,9 +69,6 @@ function base_meta_config_info() {
  */
 function base_meta_form_alter(&$form, $form_state, $form_id) {
 
-  $config = config('base_meta.settings');
-  $base_canonical_url = rtrim($config->get('base_canonical_url'), '/');
-
   if (isset($form['#node']) && $form['#node']->type . '_node_form' == $form_id) {
 
     $form['#validate'][] = 'base_meta_form_validate';
@@ -152,17 +149,33 @@ function base_meta_form_alter(&$form, $form_state, $form_id) {
 /**
  * Implements hook_validate().
  * 
- * Placeholder for validations (Description as an example) 
+ * Error message only if all fields empty.
  *
- * @todo maybe define any field(s) as required 
+ * @todo per field validation. 
  */
 
 function base_meta_form_validate($form, &$form_state) {
-
+  
   if (isset($form['#node']) && is_object($form['#node'])) {
     if ($form_state['values']['base_meta']['enabled'] == 1) {
-      if (trim($form_state['values']['base_meta']['meta_description']) == '') {
-        form_set_error('base_meta][meta_description', t('You must fill "Description" field at least.'));
+      $base_meta_values = $form_state['values']['base_meta'];
+
+      $empty_tags = (
+        empty($base_meta_values['page_title']) &&
+        empty($base_meta_values['meta_keywords']) && 
+        empty($base_meta_values['meta_description'])) ? TRUE : FALSE;
+
+      $checked_boxes = FALSE;
+
+      foreach ($base_meta_values['meta_robots'] as $tag => $value) {
+        if (is_string($value)) {
+          $checked_boxes = TRUE;
+        } 
+      }
+      
+      if ($empty_tags && !$checked_boxes) {
+        form_set_error('',
+          t('You must fill some value(s) to form "Page title and meta tags" or uncheck checkbox "Define tags for page of this node".'));
       }
     }
   }
@@ -456,11 +469,20 @@ function base_meta_get_defined_tags() {
  * Implements hook_preprocess_page().
  */
 function base_meta_preprocess_page(&$variables) {
+  
+  $config = config('base_meta.settings');
 
   $base_meta_title = base_meta_get_page_title();
   if ($base_meta_title != '') {
-    $head_site_name = $variables['head_title_array']['name'];
-    $variables['head_title'] = $base_meta_title . ' | ' . $head_site_name;
+    if ($config->get('append_site_name')) {
+      $site_name_divider = $config->get('site_name_divider');
+
+      $head_site_name = $variables['head_title_array']['name'];
+      $variables['head_title'] = $base_meta_title . ' ' . $site_name_divider . ' ' . $head_site_name;
+    }
+    else {
+      $variables['head_title'] = $base_meta_title;
+    }
   }
 }
 
