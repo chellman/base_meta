@@ -10,7 +10,7 @@
  */
 function base_meta_help($path, $arg) {
   if ($path == 'admin/help#base_meta') {
-    return t('Base Meta provide base set of meta tag.');
+    return t('Base Meta module provides custom page title and meta tags for search engines.');
   }
 }
 
@@ -21,10 +21,10 @@ function base_meta_help($path, $arg) {
 function base_meta_permission() {
   return array(
     'administer base meta settings' => array(
-      'title' => t('Administer base meta settings')
+      'title' => t('Administer Base Meta settings')
     ),
     'edit base meta tags' => array(
-      'title' => t('Edit base meta tags')
+      'title' => t('Edit Base Meta tags')
     ),
   );
 }
@@ -38,14 +38,55 @@ function base_meta_menu() {
 
   $items['admin/config/search/base_meta'] = array(
     'type' => MENU_NORMAL_ITEM,
-    'title' => 'Base Meta Tags',
+    'title' => 'Base Meta module settings',
     'page callback' => 'backdrop_get_form',
     'page arguments' => array('base_meta_form'),
     'file' => 'base_meta.admin.inc',
     'access callback' => 'user_access',
     'access arguments' => array('administer base meta settings'),
   );
+  
+  $items['admin/config/search/base_meta/default'] = array(
+    'title' => 'Default meta tags',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => 1,
+  );
 
+  $items['admin/config/search/base_meta/views'] = array(
+    'title' => 'Views pages',
+    'type' => MENU_LOCAL_TASK,
+    'page arguments' => array('base_meta_form_views'),
+    'file' => 'base_meta.admin.inc',
+    'access callback' => 'user_access',
+    'access arguments' => array('administer base meta settings'),
+    'weight' => 2,
+  );
+  
+  $items['admin/config/search/base_meta/taxonomy'] = array(
+    'title' => 'Taxonomy pages',
+    'type' => MENU_LOCAL_TASK,
+    'page arguments' => array('base_meta_form_taxonomy'),
+    'file' => 'base_meta.admin.inc',
+    'access callback' => 'user_access',
+    'access arguments' => array('administer base meta settings'),
+    'weight' => 3,
+  );
+  
+  $items['admin/config/search/base_meta/taxonomy/%'] = array(
+    'title' => 'Taxonomy page meta tags edit form',
+    'type' => MENU_SUGGESTED_ITEM,
+    'page arguments' => array('base_meta_custom_tags_edit'),
+    'file' => 'base_meta.admin.inc',
+    'access arguments' => array('administer base meta settings'),
+  );
+  
+  $items['admin/config/search/base_meta/views/%'] = array(
+    'title' => 'Views page meta tags edit form',
+    'type' => MENU_SUGGESTED_ITEM,
+    'page arguments' => array('base_meta_custom_tags_edit'),
+    'file' => 'base_meta.admin.inc',
+    'access arguments' => array('administer base meta settings'),
+  );
   return $items;
 }
 
@@ -96,6 +137,7 @@ function base_meta_form_alter(&$form, $form_state, $form_id) {
       '#type' => 'checkbox',
       '#title' => t('Define tags for page of this node'),
       '#default_value' => is_array($bmt_arr),
+      '#description' => t('Optional. If not checked, <a href="@url">default values</a> will be used', array('@url' => url('admin/config/search/base_meta'))),
     );
 
     $form['base_meta']['base_meta_container'] = array(
@@ -186,7 +228,7 @@ function base_meta_form_validate($form, &$form_state) {
  */
 function base_meta_node_insert(Node $node) {
 
-  $base_meta_enabled = $node->base_meta['enabled'];
+  $base_meta_enabled = isset($node->base_meta['enabled']) ? $node->base_meta['enabled'] : 0;
 
   if ($base_meta_enabled) {
     base_meta_record_insert($node);
@@ -198,7 +240,8 @@ function base_meta_node_insert(Node $node) {
  */
 function base_meta_node_update(Node $node) {
 
-  $base_meta_enabled = $node->base_meta['enabled'];
+  $base_meta_enabled = isset($node->base_meta['enabled']) ? $node->base_meta['enabled'] : 0;
+
   $found = db_select('base_meta', 'bm')
       ->fields('bm')
       ->condition('nid', $node->nid, '=')
@@ -322,6 +365,32 @@ function base_meta_get_tags_by_nid($nid) {
 }
 
 /**
+ * Get meta tags associated with views or taxonomy page from configuraton file.
+ *
+ * @params string $page_type
+ *   page type
+ * 
+ * @params string $page_name
+ *   page name
+ *
+ * @return array of tags or empty array
+ *   
+ */
+function base_meta_get_tags_from_config_file($page_type, $page_name) {
+
+  $config = config('base_meta.settings');
+  $tags = $config->get($page_type . '_pages_meta_tags');
+
+  if (!empty($tags) && array_key_exists ($page_name , $tags)) {
+    $tags = $tags[$page_name];
+  }
+  else {
+    $tags = array();
+  }
+  return $tags;
+}
+
+/**
  * Implements hook_html_head_alter().
  */
 function base_meta_html_head_alter(&$head_elements) {
@@ -335,55 +404,34 @@ function base_meta_html_head_alter(&$head_elements) {
   }
 }
 
-function base_meta_init() {
-  global $language;
-  global $base_url;
-
-  $tags = base_meta_get_defined_tags();
-  // !!!check
-  foreach ($tags as $name => $value) {
-    if ($value) {
-      $element = array(
-        '#tag' => 'meta',
-        '#attributes' => array(
-          'name' => $name,
-          'content' => $value,
-        ),
-      );
-      backdrop_add_html_head($element, 'base_meta_' . $name);
-    }
-  }
-
-  if (backdrop_is_front_page()) {
-    $base_canonical_url = rtrim(config_get('base_meta.settings', 'base_canonical_url'), '/');
-    // @todo: language_negotiation for domain case
-    $lang = language_default()->langcode != $language->langcode ? '/' . $language->langcode : '';
-    $canonical_url = (!empty($base_canonical_url) ? $base_canonical_url : $base_url) . $lang;
-    backdrop_add_html_head_link(array('rel' => 'canonical', 'href' => $canonical_url));
-  }
-}
-
 /**
  * 
  * @global object $language
- * @return NULL if called from admin related task
- * or object
+ * @return object $caller
  */
 function base_meta_caller() {
   global $language;
-
+  
   $caller = new stdClass();
   $caller->is_front = backdrop_is_front_page();
   if (module_exists('language')) {
     $caller->langcode = $language->langcode;
   }
+
   if (arg(0) == 'node' && is_numeric(arg(1))) {
     $caller->nid = arg(1);
   }
+
   if (arg(0) == 'taxonomy' && arg(1) == 'term' && arg(2)) {
-    $caller->tid = arg(2);
+    $term_name = taxonomy_term_load(arg(2))->name;
+    $caller->term_name = $term_name;
   }
 
+  if (function_exists('views_get_page_view') && views_get_page_view()){
+    $view_name = views_get_page_view()->name;
+    $caller->page_view_name = $view_name;
+  }
+  
   return $caller;
 }
 
@@ -399,6 +447,7 @@ function base_meta_canonical_url($system_canonical = '') {
 //  }
   global $base_url;
   $base_canonical_url = rtrim(config_get('base_meta.settings', 'base_canonical_url'), '/');
+  $caller = base_meta_caller();
 
   if ($base_canonical_url != '') {
     // @todo secure protocol replace
@@ -408,20 +457,25 @@ function base_meta_canonical_url($system_canonical = '') {
     $base_canonical_url = $base_url;
   }
 
-  $caller = base_meta_caller();
-
+  $canonical_url = $system_canonical;
+  
   if (is_object($caller)) {
+
     if (isset($caller->nid)) {
       $base_meta_tags = base_meta_get_tags_by_nid($caller->nid);
 
-      $canonical_url = $system_canonical;
       $canonical_from_node = $base_meta_tags['meta_canonical'];
       if ($canonical_from_node != '') {
         $canonical_url = strpos($canonical_from_node, 'http') !== 0 ? $base_canonical_url . '/' . $canonical_from_node : $canonical_from_node;
       }
     }
-    else {
-      $canonical_url = $system_canonical;
+    
+    if (isset($caller->term_name)) {
+      $saved_tags = base_meta_get_tags_from_config_file('taxonomy', $caller->term_name);
+      $canonical_url_from_config_file = isset($saved_tags['meta_canonical']) ? $saved_tags['meta_canonical'] : '';
+      if (!empty($canonical_url_from_config_file)) {
+        $canonical_url = strpos($canonical_url_from_config_file, 'http') !== 0 ? $base_canonical_url . '/' . $canonical_url_from_config_file : $canonical_url_from_config_file;
+      }
     }
   }
 
@@ -438,8 +492,10 @@ function base_meta_get_defined_tags() {
   $meta_description = $config->get('meta_description');
   $arr_meta_robots  = $config->get('meta_robots');
   $meta_robots      = '';
-
+  $base_meta_tags_array = array();
+  
   if (is_object($caller)) {
+    // from node
     if (isset($caller->nid)) {
       $base_meta_tags = base_meta_get_tags_by_nid($caller->nid);
       if (is_array($base_meta_tags)) {
@@ -454,14 +510,64 @@ function base_meta_get_defined_tags() {
         }
       }
       $meta_robots = rtrim($meta_robots, ', ');
-    }
 
-    $base_meta_tags_array = array(
-      'keywords' => $meta_keywords,
-      'description' => $meta_description,
-      'robots' => $meta_robots,
-    );
+      $base_meta_tags_array = array(
+        'keywords' => $meta_keywords,
+        'description' => $meta_description,
+        'robots' => $meta_robots,
+      );
+    }
+    
+    // from views page
+    if (isset($caller->page_view_name)) {
+      
+      $page_view_name = $caller->page_view_name;
+      $config_sub_path = 'views_pages_meta_tags.' . $page_view_name . '.';
+
+      $base_meta_tags_array = base_meta_get_tags_by_caller($config_sub_path);
+
+    }
+    // from taxonomy page
+    if (isset($caller->term_name)) {
+
+      $page_taxonomy_name = $caller->term_name;
+      $config_sub_path = 'taxonomy_pages_meta_tags.' . $page_taxonomy_name . '.';
+      
+      $base_meta_tags_array = base_meta_get_tags_by_caller($config_sub_path);
+    }
+    
+ }
+  return $base_meta_tags_array;
+}
+
+/**
+ * 
+ * @param string $config_sub_path
+ * 
+ */
+function base_meta_get_tags_by_caller($config_sub_path) {
+  
+  $config           = config('base_meta.settings');
+  $meta_keywords    = $config->get($config_sub_path . 'meta_keywords');
+  $meta_description = $config->get($config_sub_path . 'meta_description');
+  $arr_meta_robots  = $config->get($config_sub_path . 'meta_robots');
+  $meta_robots      = '';
+      
+  if (!empty($arr_meta_robots)) {
+    foreach ($arr_meta_robots as $key => $value) {
+      if ($value) {
+        $meta_robots .= strtolower($key) . ', ';
+      }
+    }
+    $meta_robots = rtrim($meta_robots, ', ');
   }
+  
+  $base_meta_tags_array = array(
+    'keywords' => $meta_keywords,
+    'description' => $meta_description,
+    'robots' => $meta_robots,
+  );
+  
   return $base_meta_tags_array;
 }
 
@@ -470,9 +576,15 @@ function base_meta_get_defined_tags() {
  */
 function base_meta_preprocess_page(&$variables) {
   
-  $config = config('base_meta.settings');
+  global $language, $base_url;
 
-  $base_meta_title = base_meta_get_page_title();
+  $config             = config('base_meta.settings');
+  $base_meta_title    = base_meta_get_page_title();
+  $tags               = base_meta_get_defined_tags();
+  $caller             = base_meta_caller();
+  $system_canonical   = '';
+  $base_canonical_url = rtrim(config_get('base_meta.settings', 'base_canonical_url'), '/');
+  
   if ($base_meta_title != '') {
     if ($config->get('append_site_name')) {
       $site_name_divider = $config->get('site_name_divider');
@@ -484,6 +596,81 @@ function base_meta_preprocess_page(&$variables) {
       $variables['head_title'] = $base_meta_title;
     }
   }
+
+  if (!empty($tags)) {
+    foreach ($tags as $name => $value) {
+      if ($value) {
+        $element = array(
+          '#tag' => 'meta',
+          '#attributes' => array(
+            'name' => $name,
+            'content' => $value,
+          ),
+        );
+        backdrop_add_html_head($element, 'base_meta_' . $name);
+      }
+    }
+  }
+  
+  if (backdrop_is_front_page() && !isset($caller->nid) && !isset($caller->page_view_name) && !isset($caller->term_name)) {
+    // @todo: language_negotiation for domain case
+    $lang = language_default()->langcode != $language->langcode ? '/' . $language->langcode : '';
+    $canonical_url = (!empty($base_canonical_url) ? $base_canonical_url : $base_url) . $lang;
+    backdrop_add_html_head_link(array('rel' => 'canonical', 'href' => $canonical_url));
+  }
+  
+  if (isset($caller->page_view_name)) {
+
+    if ($base_canonical_url != '') {
+      // @todo secure protocol replace
+      $system_canonical = str_replace($base_url, $base_canonical_url, $system_canonical);
+    }
+    else {
+      $base_canonical_url = $base_url;
+    }
+
+    $canonical_url = $system_canonical;
+
+    $saved_tags = base_meta_get_tags_from_config_file('views', $caller->page_view_name);
+    $canonical_url_from_config_file = isset($saved_tags['meta_canonical']) ? $saved_tags['meta_canonical'] : '';
+    if (!empty($canonical_url_from_config_file)) {
+      $canonical_url = strpos($canonical_url_from_config_file, 'http') !== 0 ? $base_canonical_url . '/' . $canonical_url_from_config_file : $canonical_url_from_config_file;
+      backdrop_add_html_head_link(array('rel' => 'canonical', 'href' => $canonical_url));
+    }
+  }
+}
+
+/**
+ * 
+ * @return array of views pages with path defined
+ */
+function base_meta_get_views_pages() {
+  
+  $result = array();
+  $views = views_get_enabled_views();
+  foreach ($views as $view) {
+
+    if (empty($view->display)) {
+      // Skip this view as it is broken.
+      debug(t("Skipping broken view @view", array('@view' => $view->name)));
+      continue;
+    }
+    
+    foreach (array_keys($view->display) as $id) {
+      $plugin = views_fetch_plugin_data('display', $view->display[$id]->display_plugin);
+
+      if ($plugin['name'] == 'page') {
+        $view_name = $view->name;
+        $page_path = $view->display[$id]->display_options['path'];
+        // Skip admin views
+        if (strpos($page_path, 'admin/') === FALSE) {
+          $result[][$view_name] = $page_path;
+        }
+      }           
+    }
+  }
+  
+  return $result;
 }
 
 /**
@@ -494,11 +681,24 @@ function base_meta_preprocess_page(&$variables) {
 function base_meta_get_page_title() {
   $page_title = '';
   $caller     = base_meta_caller();
+
   if (is_object($caller)) {
     if (isset($caller->nid)) {
       $base_meta_tags = base_meta_get_tags_by_nid($caller->nid);
       if (is_array($base_meta_tags)) {
         $page_title = $base_meta_tags['page_title'];
+      }
+    }
+    if (isset($caller->term_name)) {
+      $saved_tags = base_meta_get_tags_from_config_file('taxonomy', $caller->term_name);
+      if (!empty($saved_tags)) {
+        $page_title = isset($saved_tags['page_title']) ? $saved_tags['page_title'] : '';
+      }
+    }
+    if (isset($caller->page_view_name)) {
+      $saved_tags = base_meta_get_tags_from_config_file('views', $caller->page_view_name);
+      if (!empty($saved_tags)) {
+        $page_title = isset($saved_tags['page_title']) ? $saved_tags['page_title'] : '';
       }
     }
   }

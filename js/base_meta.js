@@ -9,7 +9,7 @@ Backdrop.behaviors.base_metaFieldsetSummaries = {
         return Backdrop.t('Tags defined');
       }
       else {
-        return Backdrop.t('Use defaults');
+        return Backdrop.t('No tags');
       }
     });
   }

@@ -102,3 +102,16 @@ function base_meta_update_1000() {
 
   $config->save();  
 }
+
+/**
+ *  Add and init new empty arrays for taxonomy and views pages meta tags to config.
+ */
+function base_meta_update_1001() {
+
+  $config = config('base_meta.settings');
+
+  $config->set('taxonomy_pages_meta_tags', []);
+  $config->set('views_pages_meta_tags', []);
+
+  $config->save();  
+}

@@ -1,7 +1,7 @@
-name = Base Meta Tags
-description = Provide base set of meta tags for search engines.
+name = Base Meta: Page Title And Meta Tags
+description = Provides custom page title and meta tags for search engines.
 package = SEO
 backdrop = 1.x
 type = module
 configure = admin/config/search/base_meta
-version = 1.1.0
+version = 1.1.1
