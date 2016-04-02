@@ -171,14 +171,20 @@ function base_meta_form_alter(&$form, $form_state, $form_id) {
       '#rows' => 3,
       '#description' => t('One or two sentence described this page (350 characters max. without any HTML tags.)'),
     );
-    $form['base_meta']['base_meta_container']['meta_robots'] = array(
+    $form['base_meta']['base_meta_container']['group'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('More'),
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+    );    
+    $form['base_meta']['base_meta_container']['group']['meta_robots'] = array(
       '#type' => 'checkboxes',
       '#title' => t('Meta robots'),
       '#options' => backdrop_map_assoc(array('NOINDEX', 'NOFOLLOW', 'NOARCHIVE', 'NOODP', 'NOSNIPPET')),
       '#default_value' => isset($bmt_arr['meta_robots']) ? unserialize($bmt_arr['meta_robots']) : array(),
       '#description' => 'Search engines assume "INDEX" and "FOLLOW" unless these are specifically disabled above.',
     );
-    $form['base_meta']['base_meta_container']['meta_canonical'] = array(
+    $form['base_meta']['base_meta_container']['group']['meta_canonical'] = array(
       '#type' => 'textfield',
       '#title' => t('Canonical URL'),
       '#default_value' => isset($bmt_arr['meta_canonical']) ? $bmt_arr['meta_canonical'] : '',
@@ -209,7 +215,7 @@ function base_meta_form_validate($form, &$form_state) {
 
       $checked_boxes = FALSE;
 
-      foreach ($base_meta_values['meta_robots'] as $tag => $value) {
+      foreach ($base_meta_values['group']['meta_robots'] as $tag => $value) {
         if (is_string($value)) {
           $checked_boxes = TRUE;
         } 
@@ -282,8 +288,8 @@ function base_meta_record_insert($node) {
   $page_title       = trim($node->base_meta['page_title']);
   $meta_keywords    = trim($node->base_meta['meta_keywords']);
   $meta_description = trim($node->base_meta['meta_description']);
-  $meta_robots      = serialize($node->base_meta['meta_robots']);
-  $meta_canonical   = trim($node->base_meta['meta_canonical']);
+  $meta_robots      = serialize($node->base_meta['group']['meta_robots']);
+  $meta_canonical   = trim($node->base_meta['group']['meta_canonical']);
 
   db_insert('base_meta')
       ->fields(array(
@@ -327,8 +333,8 @@ function base_meta_record_update($node) {
   $page_title       = trim($node->base_meta['page_title']);
   $meta_keywords    = trim($node->base_meta['meta_keywords']);
   $meta_description = trim($node->base_meta['meta_description']);
-  $meta_robots      = serialize($node->base_meta['meta_robots']);
-  $meta_canonical   = trim($node->base_meta['meta_canonical']);
+  $meta_robots      = serialize($node->base_meta['group']['meta_robots']);
+  $meta_canonical   = trim($node->base_meta['group']['meta_canonical']);
 
   db_update('base_meta')
       ->fields(array(
@@ -503,14 +509,16 @@ function base_meta_get_defined_tags() {
         $meta_description = $base_meta_tags['meta_description'] != '' ? $base_meta_tags['meta_description'] : NULL;
         $arr_meta_robots  = $base_meta_tags['meta_robots'] != '' ? unserialize($base_meta_tags['meta_robots']) : array();
       }
-
-      foreach ($arr_meta_robots as $key => $value) {
-        if ($value) {
-          $meta_robots .= strtolower($key) . ', ';
+      
+      if (!empty($arr_meta_robots)) {
+        foreach ($arr_meta_robots as $key => $value) {
+          if ($value) {
+            $meta_robots .= strtolower($key) . ', ';
+          }
         }
+        $meta_robots = rtrim($meta_robots, ', ');
       }
-      $meta_robots = rtrim($meta_robots, ', ');
-
+      
       $base_meta_tags_array = array(
         'keywords' => $meta_keywords,
         'description' => $meta_description,
