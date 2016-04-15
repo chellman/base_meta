@@ -171,6 +171,50 @@ function base_meta_form_alter(&$form, $form_state, $form_id) {
       '#rows' => 3,
       '#description' => t('One or two sentence described this page (350 characters max. without any HTML tags.)'),
     );
+    
+    $form['base_meta']['base_meta_container']['open_graph'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Open Graph'),
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+    );
+    $form['base_meta']['base_meta_container']['open_graph']['meta_og_title'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Open Graph title'),
+      '#default_value' => isset($bmt_arr['meta_og_title']) ? $bmt_arr['meta_og_title'] : '',
+      '#description' => t('The title of this page as rendered on Facebook'),
+    );
+    $form['base_meta']['base_meta_container']['open_graph']['meta_og_description'] = array(
+      '#type' => 'textarea',
+      '#title' => t('Open Graph description'),
+      '#default_value' => isset($bmt_arr['meta_og_description']) ? $bmt_arr['meta_og_description'] : '',
+      '#rows' => 3,
+      '#description' => t('One or two sentence described this page (350 characters max. without any HTML tags.)'),
+    );
+    $form['base_meta']['base_meta_container']['open_graph']['meta_og_type'] = array(
+      '#type' => 'select',
+      '#options' => array(
+        'website' => t('Website'),
+        'article' => t('Article'),
+      ),
+      '#title' => t('Open Graph type'),
+      '#default_value' => isset($bmt_arr['meta_og_type']) ? $bmt_arr['meta_og_type'] : '',
+      '#description' => t('The type of this item'),
+    );
+    $form['base_meta']['base_meta_container']['open_graph']['meta_og_image_fid'] = array(
+      '#title' => t('Image upload'),
+      '#type' => 'managed_file',
+      '#upload_location' => 'public://files/og_image',
+      '#default_value' => isset($bmt_arr['meta_og_image_fid']) ? $bmt_arr['meta_og_image_fid'] : NULL,
+      '#upload_validators' => array(
+        'file_validate_extensions' => array('gif png jpg jpeg'),
+        'file_validate_size' => array(file_upload_max_size()),
+      ),
+      '#wrapper_attributes' => array(
+        'data-editor-image-toggle' => t('Image Upload'),
+      ),
+    );
+    
     $form['base_meta']['base_meta_container']['group'] = array(
       '#type' => 'fieldset',
       '#title' => t('More'),
@@ -290,6 +334,11 @@ function base_meta_record_insert($node) {
   $meta_description = trim($node->base_meta['meta_description']);
   $meta_robots      = serialize($node->base_meta['group']['meta_robots']);
   $meta_canonical   = trim($node->base_meta['group']['meta_canonical']);
+  $meta_og_title = trim($node->base_meta['open_graph']['meta_og_title']);
+  $meta_og_description = trim($node->base_meta['open_graph']['meta_og_description']);
+  $meta_og_type = trim($node->base_meta['open_graph']['meta_og_type']);
+  $meta_og_image_fid = trim($node->base_meta['open_graph']['meta_og_image_fid']);
+  $meta_og_url = trim($node->base_meta['meta_canonical']);
 
   db_insert('base_meta')
       ->fields(array(
@@ -301,6 +350,11 @@ function base_meta_record_insert($node) {
         'meta_description' => $meta_description,
         'meta_robots' => $meta_robots,
         'meta_canonical' => $meta_canonical,
+        'meta_og_title' => $meta_og_title,
+        'meta_og_description' => $meta_og_description,
+        'meta_og_type' => $meta_og_type,
+        'meta_og_url' => $meta_og_url,
+        'meta_og_image_fid' => $meta_og_image_fid,
         'uid' => $node->uid,
         'changed' => time(),
       ))
@@ -326,15 +380,20 @@ function base_meta_record_delete($node) {
 
 function base_meta_record_update($node) {
 
-  $path             = $node->path;
-  $path['alias']    = trim($path['alias']);
-  $path_alias       = (!empty($path['alias'])) ? $path['alias'] : 'node/' . $node->nid;
-  $langcode         = isset($node->langcode) ? $node->langcode : LANGUAGE_NONE;
-  $page_title       = trim($node->base_meta['page_title']);
-  $meta_keywords    = trim($node->base_meta['meta_keywords']);
-  $meta_description = trim($node->base_meta['meta_description']);
-  $meta_robots      = serialize($node->base_meta['group']['meta_robots']);
-  $meta_canonical   = trim($node->base_meta['group']['meta_canonical']);
+  $path                 = $node->path;
+  $path['alias']        = trim($path['alias']);
+  $path_alias           = (!empty($path['alias'])) ? $path['alias'] : 'node/' . $node->nid;
+  $langcode             = isset($node->langcode) ? $node->langcode : LANGUAGE_NONE;
+  $page_title           = trim($node->base_meta['page_title']);
+  $meta_keywords        = trim($node->base_meta['meta_keywords']);
+  $meta_description     = trim($node->base_meta['meta_description']);
+  $meta_robots          = serialize($node->base_meta['group']['meta_robots']);
+  $meta_canonical       = trim($node->base_meta['group']['meta_canonical']);
+  $meta_og_title        = trim($node->base_meta['open_graph']['meta_og_title']);
+  $meta_og_description  = trim($node->base_meta['open_graph']['meta_og_description']);
+  $meta_og_type         = trim($node->base_meta['open_graph']['meta_og_type']);
+  $meta_og_image_fid    = trim($node->base_meta['open_graph']['meta_og_image_fid']);
+  $meta_og_url          = trim($node->base_meta['meta_canonical']);
 
   db_update('base_meta')
       ->fields(array(
@@ -345,6 +404,11 @@ function base_meta_record_update($node) {
         'meta_description' => $meta_description,
         'meta_robots' => $meta_robots,
         'meta_canonical' => $meta_canonical,
+        'meta_og_title' => $meta_og_title,
+        'meta_og_description' => $meta_og_description,
+        'meta_og_type' => $meta_og_type,
+        'meta_og_url' => $meta_og_url,
+        'meta_og_image_fid' => $meta_og_image_fid,
         'uid' => $node->uid,
         'changed' => time(),
       ))
@@ -492,12 +556,16 @@ function base_meta_canonical_url($system_canonical = '') {
  *  Build array of tags 
  */
 function base_meta_get_defined_tags() {
-  $config           = config('base_meta.settings');
-  $caller           = base_meta_caller();
-  $meta_keywords    = $config->get('meta_keywords');
-  $meta_description = $config->get('meta_description');
-  $arr_meta_robots  = $config->get('meta_robots');
-  $meta_robots      = '';
+  $config               = config('base_meta.settings');
+  $caller               = base_meta_caller();
+  $meta_keywords        = $config->get('meta_keywords');
+  $meta_description     = $config->get('meta_description');
+  $arr_meta_robots      = $config->get('meta_robots');
+  $meta_robots          = '';
+  $meta_og_title        = $config->get('meta_og_title');
+  $meta_og_description  = $config->get('meta_og_description');
+  $meta_og_type         = $config->get('meta_og_type');
+  $meta_og_image_fid    = $config->get('meta_og_image_fid');
   $base_meta_tags_array = array();
   
   if (is_object($caller)) {
@@ -505,9 +573,14 @@ function base_meta_get_defined_tags() {
     if (isset($caller->nid)) {
       $base_meta_tags = base_meta_get_tags_by_nid($caller->nid);
       if (is_array($base_meta_tags)) {
-        $meta_keywords    = $base_meta_tags['meta_keywords'] != '' ? $base_meta_tags['meta_keywords'] : NULL;
-        $meta_description = $base_meta_tags['meta_description'] != '' ? $base_meta_tags['meta_description'] : NULL;
-        $arr_meta_robots  = $base_meta_tags['meta_robots'] != '' ? unserialize($base_meta_tags['meta_robots']) : array();
+        $meta_keywords        = $base_meta_tags['meta_keywords'] != '' ? $base_meta_tags['meta_keywords'] : NULL;
+        $meta_description     = $base_meta_tags['meta_description'] != '' ? $base_meta_tags['meta_description'] : NULL;
+        $arr_meta_robots      = $base_meta_tags['meta_robots'] != '' ? unserialize($base_meta_tags['meta_robots']) : array();
+        $meta_og_title        = $base_meta_tags['meta_og_title'] != '' ? $base_meta_tags['meta_og_title'] : NULL;
+        $meta_og_description  = $base_meta_tags['meta_og_description'] != '' ? $base_meta_tags['meta_og_description'] : NULL;
+        $meta_og_image_fid    = $base_meta_tags['meta_og_image_fid'] != '' ? $base_meta_tags['meta_og_image_fid'] : NULL;
+        $meta_og_url          = $base_meta_tags['meta_canonical'] != '' ? $base_meta_tags['meta_canonical'] : NULL;
+        $meta_og_type         = $base_meta_tags['meta_og_type'] != '' ? $base_meta_tags['meta_og_type'] : NULL;
       }
       
       if (!empty($arr_meta_robots)) {
@@ -518,11 +591,27 @@ function base_meta_get_defined_tags() {
         }
         $meta_robots = rtrim($meta_robots, ', ');
       }
+
+      if (!empty($meta_og_image_fid)) {
+        $image = file_load($meta_og_image_fid);
+        $meta_og_image_url = is_object($image) ? file_create_url($image->uri) : '';
+      } else {
+        $meta_og_image_url = '';
+      }
+
+      if (empty($meta_og_url)) {
+        $meta_og_url = url('node/'.$caller->nid, array('absolute' => TRUE));
+      }
       
       $base_meta_tags_array = array(
         'keywords' => $meta_keywords,
         'description' => $meta_description,
         'robots' => $meta_robots,
+        'og:title' => $meta_og_title,
+        'og:description' => $meta_og_description,
+        'og:image' => $meta_og_image_url,
+        'og:type' => $meta_og_type,
+        'og:url' => $meta_og_url,
       );
     }
     
@@ -711,4 +800,17 @@ function base_meta_get_page_title() {
     }
   }
   return $page_title;
+}
+
+
+/**
+ * Helper function returns options we might use for Open Graph types
+ * 
+ * @return array
+ */
+function _base_meta_get_og_types() {
+  return array(
+    'website' => t('Website'),
+    'article' => t('Article'),
+  );
 }

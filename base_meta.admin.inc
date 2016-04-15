@@ -63,6 +63,59 @@ function base_meta_form() {
     '#default_value' => $config->get('meta_robots'),
     '#description' => 'Search engines assume "INDEX" and "FOLLOW" unless these are specifically disabled above.',
   );
+  
+  $form['common_settings']['open_graph'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Open Graph'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+  );
+  
+  $form['common_settings']['open_graph']['meta_og_title'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Open Graph title'),
+    '#default_value' => $config->get('meta_og_title'),
+    '#description' => t('The title of this page as rendered on Facebook'),
+  );
+  
+  $form['common_settings']['open_graph']['meta_og_description'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Open Graph description'),
+    '#default_value' => $config->get('meta_og_description'),
+    '#rows' => 3,
+    '#description' => t('One or two sentence described this page (350 characters max. without any HTML tags.)'),
+  );
+  
+  $form['common_settings']['open_graph']['meta_og_type'] = array(
+    '#type' => 'select',
+    '#options' => _base_meta_get_og_types(),
+    '#title' => t('Open Graph type'),
+    '#default_value' => $config->get('meta_og_type'),
+    '#description' => t('The type of this item'),
+  );
+  
+  $form['common_settings']['open_graph']['meta_og_image_fid'] = array(
+    '#title' => t('Open Graph image'),
+    '#description' => t('Upload a custom image'),
+    '#type' => 'managed_file',
+    '#upload_location' => 'public://' . $config->get('meta_og_image_dir'),
+    '#default_value' => $config->get('meta_og_image_fid'),
+    '#upload_validators' => array(
+      'file_validate_extensions' => array('gif png jpg jpeg'),
+      'file_validate_size' => array(file_upload_max_size()),
+    ),
+    '#wrapper_attributes' => array(
+      'data-editor-image-toggle' => t('Image Upload'),
+    ),
+  );
+  
+  $form['common_settings']['open_graph']['meta_og_image_dir'] = array(
+    '#title' => t('Image directory'),
+    '#type' => 'textfield',
+    '#default_value' => $config->get('meta_og_image_dir'),
+    '#description' => t('Where images should be uploaded'),
+    '#field_prefix' => 'public://',
+  );
 
   $form['common_settings']['page_title'] = array(
     '#markup' => '<h3>' . 'Custom page title settings' . ':</h3>',
@@ -116,6 +169,11 @@ function base_meta_form_submit($form, &$form_state) {
   $config->set('meta_keywords',      trim($form_state['values']['meta_keywords']));
   $config->set('meta_description',   trim($form_state['values']['meta_description']));
   $config->set('meta_robots',        $form_state['values']['meta_robots']);
+  $config->set('meta_og_title',       trim($form_state['values']['meta_og_title']));
+  $config->set('meta_og_description', trim($form_state['values']['meta_og_description']));
+  $config->set('meta_og_type',        trim($form_state['values']['meta_og_type']));
+  $config->set('meta_og_image_dir',   trim($form_state['values']['meta_og_image_dir']));
+  $config->set('meta_og_image_fid',   trim($form_state['values']['meta_og_image_fid']));
   $config->set('append_site_name',   $form_state['values']['append_site_name']);
   $config->set('site_name_divider',  $form_state['values']['site_name_divider']);
   

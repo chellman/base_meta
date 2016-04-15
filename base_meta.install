@@ -70,6 +70,36 @@ function base_meta_schema() {
         'length' => '255',
         'not null' => FALSE,
       ),
+      'meta_og_title' => array(
+        'description' => 'Meta open graph title.',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => FALSE,
+      ),
+      'meta_og_description' => array(
+        'description' => 'Meta open graph description.',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => FALSE,
+      ),
+      'meta_og_image_fid' => array(
+        'description' => 'Meta open graph image fid.',
+        'type' => 'int',
+        'not null' => FALSE,
+        'unsigned' => TRUE,
+      ),
+      'meta_og_type' => array(
+        'description' => 'Meta open graph type.',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => FALSE,
+      ),
+      'meta_og_url' => array(
+        'description' => 'Meta open graph URL.',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+      ),
       'uid' => array(
         'description' => 'Author identifier.',
         'type' => 'int',
@@ -113,5 +143,59 @@ function base_meta_update_1001() {
   $config->set('taxonomy_pages_meta_tags', []);
   $config->set('views_pages_meta_tags', []);
 
+  $config->save();  
+}
+
+/**
+ *  Add and init new fields and config for Open Graph tags.
+ */
+function base_meta_update_1002() {
+  $fields = array(
+    'meta_og_title' => array(
+      'description' => 'Meta open graph title.',
+      'type' => 'varchar',
+      'length' => '255',
+      'not null' => FALSE,
+    ),
+    'meta_og_description' => array(
+      'description' => 'Meta open graph description.',
+      'type' => 'varchar',
+      'length' => '255',
+      'not null' => FALSE,
+    ),
+    'meta_og_type' => array(
+      'description' => 'Meta open graph type.',
+      'type' => 'varchar',
+      'length' => '255',
+      'not null' => FALSE,
+    ),
+    'meta_og_image_fid' => array(
+      'description' => 'Meta open graph image fid.',
+      'type' => 'int',
+      'not null' => FALSE,
+      'unsigned' => TRUE,
+    ),
+    'meta_og_url' => array(
+      'description' => 'Meta open graph URL.',
+      'type' => 'varchar',
+      'length' => '255',
+      'not null' => TRUE,
+    ),
+  );
+  
+  foreach($fields as $field_name => $schema) {
+    if (!db_field_exists('base_meta', $field_name)) {
+      db_add_field('base_meta', $field_name, $schema);
+    }
+  }
+
+  $config = config('base_meta.settings');
+
+  $config->set('meta_og_type', '');
+  $config->set('meta_og_title', '');
+  $config->set('meta_og_description', '');
+  $config->set('meta_og_image_dir', 'og_image');
+  $config->set('meta_og_image_fid', '');
+  
   $config->save();  
 }
