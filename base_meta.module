@@ -112,6 +112,8 @@ function base_meta_form_alter(&$form, $form_state, $form_id) {
 
   if (isset($form['#node']) && $form['#node']->type . '_node_form' == $form_id) {
 
+    $config = config('base_meta.settings');
+
     $form['#validate'][] = 'base_meta_form_validate';
     // edit existing node or add new 
     $nid = isset($form['nid']['#value']) ? $form['nid']['#value'] : NULL;
@@ -204,7 +206,7 @@ function base_meta_form_alter(&$form, $form_state, $form_id) {
     $form['base_meta']['base_meta_container']['open_graph']['meta_og_image_fid'] = array(
       '#title' => t('Image upload'),
       '#type' => 'managed_file',
-      '#upload_location' => 'public://files/og_image',
+      '#upload_location' => 'public://' . $config->get('meta_og_image_dir'),
       '#default_value' => isset($bmt_arr['meta_og_image_fid']) ? $bmt_arr['meta_og_image_fid'] : NULL,
       '#upload_validators' => array(
         'file_validate_extensions' => array('gif png jpg jpeg'),
@@ -338,7 +340,6 @@ function base_meta_record_insert($node) {
   $meta_og_description = trim($node->base_meta['open_graph']['meta_og_description']);
   $meta_og_type = trim($node->base_meta['open_graph']['meta_og_type']);
   $meta_og_image_fid = trim($node->base_meta['open_graph']['meta_og_image_fid']);
-  $meta_og_url = trim($node->base_meta['meta_canonical']);
 
   db_insert('base_meta')
       ->fields(array(
@@ -353,7 +354,7 @@ function base_meta_record_insert($node) {
         'meta_og_title' => $meta_og_title,
         'meta_og_description' => $meta_og_description,
         'meta_og_type' => $meta_og_type,
-        'meta_og_url' => $meta_og_url,
+        'meta_og_url' => $meta_canonical,
         'meta_og_image_fid' => $meta_og_image_fid,
         'uid' => $node->uid,
         'changed' => time(),
@@ -393,7 +394,6 @@ function base_meta_record_update($node) {
   $meta_og_description  = trim($node->base_meta['open_graph']['meta_og_description']);
   $meta_og_type         = trim($node->base_meta['open_graph']['meta_og_type']);
   $meta_og_image_fid    = trim($node->base_meta['open_graph']['meta_og_image_fid']);
-  $meta_og_url          = trim($node->base_meta['meta_canonical']);
 
   db_update('base_meta')
       ->fields(array(
@@ -407,7 +407,7 @@ function base_meta_record_update($node) {
         'meta_og_title' => $meta_og_title,
         'meta_og_description' => $meta_og_description,
         'meta_og_type' => $meta_og_type,
-        'meta_og_url' => $meta_og_url,
+        'meta_og_url' => $meta_canonical,
         'meta_og_image_fid' => $meta_og_image_fid,
         'uid' => $node->uid,
         'changed' => time(),
@@ -601,6 +601,8 @@ function base_meta_get_defined_tags() {
 
       if (empty($meta_og_url)) {
         $meta_og_url = url('node/'.$caller->nid, array('absolute' => TRUE));
+      } else {
+        $meta_og_url = base_meta_canonical_url();
       }
       
       $base_meta_tags_array = array(

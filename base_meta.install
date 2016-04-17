@@ -98,7 +98,7 @@ function base_meta_schema() {
         'description' => 'Meta open graph URL.',
         'type' => 'varchar',
         'length' => '255',
-        'not null' => TRUE,
+        'not null' => FALSE
       ),
       'uid' => array(
         'description' => 'Author identifier.',
@@ -179,7 +179,7 @@ function base_meta_update_1002() {
       'description' => 'Meta open graph URL.',
       'type' => 'varchar',
       'length' => '255',
-      'not null' => TRUE,
+      'not null' => FALSE,
     ),
   );
   
