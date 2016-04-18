@@ -140,8 +140,8 @@ function base_meta_update_1001() {
 
   $config = config('base_meta.settings');
 
-  $config->set('taxonomy_pages_meta_tags', []);
-  $config->set('views_pages_meta_tags', []);
+  $config->set('taxonomy_pages_meta_tags', array());
+  $config->set('views_pages_meta_tags', array());
 
   $config->save();  
 }
